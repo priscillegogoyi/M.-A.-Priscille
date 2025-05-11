@@ -1,5 +1,5 @@
-# M.-A.-Priscille
-# Déploiement d'une infrastructure AWS avec CloudFormation
+
+# Déploiement d'un systeme AWS de traitement de fichier image 
 
 le projet propose un modèle AWS CloudFormation permettant de déployer automatiquement un systeme simple pour traiter de fichiers stockés sur Amazon S3. L’infrastructure inclut un bucket S3, une fonction Lambda pour le traitement des événements, une table DynamoDB pour enregistrer les métadonnées des fichiers, une instance EC2 avec son groupe de sécurité, ainsi que les autorisations nécessaires pour que les composants interagissent entre eux.
 
