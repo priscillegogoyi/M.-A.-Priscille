@@ -9,27 +9,25 @@ L'objectif de cette infrastructure est de déclencher automatiquement une foncti
 
 2- Présentation des composants
 
-    * Paramètres du modèle
-Le modèle prend deux paramètres :
-- EnvName : le nom de l’environnement utilisé pour personnaliser les noms des ressources.
-- VPcId : l'identifiant du VPC dans lequel sera lancée l’instance EC2.
+   * Paramètres du modèle
+Le modèle prend deux paramètres : EnvName (le nom de l’environnement utilisé pour personnaliser les noms des ressources) et VPcId (l'identifiant du VPC dans lequel sera lancée l’instance EC2) .
 
-    * Bucket S3
+   * Bucket S3
 Le bucket S3 est est configuré pour déclencher un événement à chaque ajout de fichier. Cet événement appelle une fonction Lambda, grâce à une autorisation spécifique définie par la ressource Lambda::Permission.
 
-    * Fonction Lambda
+   * Fonction Lambda
 La fonction Lambda est écrite en Python 3.9. Elle est déclenchée à chaque ajout de fichier dans le bucket S3. À chaque exécution, elle lit les métadonnées du fichier et les insère dans la table DynamoDB. Le nom de la table est passé à Lambda via une variable d’environnement. La fonction utilise les SDK boto3 pour interagir avec S3 et DynamoDB.
 
-    * Table DynamoDB
+   * Table DynamoDB
 La table DynamoDB est utilisée pour stocker les métadonnées des fichiers. Elle est nommée dynamiquement selon l’environnement. Elle utilise un seul attribut comme clé primaire : FileName de type String. Le débit est provisionné avec 5 unités de lecture et 5 unités d’écriture.
 
-    * Instance EC2
+   * Instance EC2
 Une instance EC2 de type t2.micro est également déployée dans un sous-réseau spécifique (subnet-0a230d78bf307974b) appartenant au VPC indiqué en paramètre. L’instance est configurée avec deux volumes EBS. Elle est associée à un groupe de sécurité personnalisé qui autorise uniquement les connexions SSH depuis une adresse IP bien précise (196.169.11.120/24). La clé SSH utilisée est iabdkey.
 
-    * Groupe de sécurité
+   * Groupe de sécurité
 Un groupe de sécurité nommé selon l’environnement est créé pour contrôler les accès à l’instance EC2. Il autorise uniquement les connexions entrantes sur le port SSH depuis une plage IP spécifique.
 
-    * Autorisation Lambda-S3
+   * Autorisation Lambda-S3
 Pour permettre au bucket S3 d’appeler la fonction Lambda, une autorisation est définie par la ressource AWS::Lambda::Permission. Cette autorisation indique que le service S3 est autorisé à appeler la fonction lorsque des événements se produisent dans le bucket concerné.
 
 
