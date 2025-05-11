@@ -1,0 +1,119 @@
+AWSTemplateFormatVersion: '2010-09-09'
+
+Description: CloudFormation template to create an S3 bucket, Lambda trigger, and DynamoDB
+
+Parameters:
+  EnvName: 
+    Type: String
+    Default: "dev"
+    Description: Environment name
+
+  VPcId: 
+    Type: String
+    Description: VPC ID for the EC2 instance
+    Default: "vpc-0b5f3f9b482b7b7a4"
+
+Resources:
+
+  S3Bucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub "${EnvName}-file-metadata-bucket"
+      NotificationConfiguration:
+        LambdaConfigurations:
+          - Event: s3:ObjectCreated:*
+            Function: !GetAtt LambdaFunction.Arn
+    DependsOn: S3LambdaPermission
+
+  DynamoDBTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub "FileMetadata-${EnvName}"
+      AttributeDefinitions:
+        - AttributeName: "FileName"
+          AttributeType: "S"
+      KeySchema:
+        - AttributeName: "FileName"
+          KeyType: "HASH"
+      ProvisionedThroughput:
+        ReadCapacityUnits: 5
+        WriteCapacityUnits: 5
+
+  MysecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupName: !Sub "${EnvName}-security-group"
+      GroupDescription: "Security group for priscillegogoyi-instance"
+      VpcId: !Ref VPcId
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          CidrIp: 196.169.11.120/24
+
+  LambdaFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub "learn-function-${EnvName}"
+      Role: "arn:aws:iam::629193321657:role/lambda-s3-trigger-role"
+      Runtime: python3.9
+      Handler: index.lambda_handler
+      Timeout: 30
+      MemorySize: 128
+      Environment:
+        Variables:
+          TABLE_NAME: !Sub "FileMetadata-${EnvName}"
+      Code:
+        ZipFile: |
+          import os
+          import json
+          import boto3
+
+          def lambda_handler(event, context):
+              s3 = boto3.client('s3')
+              dynamodb = boto3.resource('dynamodb')
+              table_name = os.environ['TABLE_NAME']
+              table = dynamodb.Table(table_name)
+
+              for record in event['Records']:
+                  bucket = record['s3']['bucket']['name']
+                  key = record['s3']['object']['key']
+                  table.put_item(Item={'FileName': key, 'BucketName': bucket})
+
+              return {
+                  'statusCode': 200,
+                  'body': json.dumps('Metadata stored successfully.')
+              }
+
+  S3LambdaPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !Ref LambdaFunction
+      Principal: s3.amazonaws.com
+      SourceArn: !Sub "arn:aws:s3:::${EnvName}-file-metadata-bucket"
+
+  MyEC2Instance: 
+    Type: AWS::EC2::Instance
+    Properties: 
+      ImageId: "ami-0160e8d70ebc43ee1"
+      InstanceType: t2.micro
+      KeyName: "iabdkey"
+      SubnetId: subnet-0a230d78bf307974b			
+      SecurityGroupIds:
+          - sg-05aa54c7bba3d1658
+      BlockDeviceMappings: 
+      - DeviceName: "/dev/sdm"
+        Ebs: 
+          VolumeType: "io1"
+          Iops: "200"
+          DeleteOnTermination: "true"
+          VolumeSize: "20"
+      - DeviceName: "/dev/sdk"
+        NoDevice: {}
+
+      Tags :
+        - Key: Name
+          Value: !Sub "${EnvName}-instance"
+        - Key: Class
+          Value: iabd
